@@ -1,0 +1,152 @@
+---
+title: "Assignment 1"
+author: "YU Hong"
+date: "2018/11/5"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+**Apply multiple linear regression to the Auto data set**  
+
+
+## 1. Produce a scatterplot matrix which includes all of the variables in the data set.  
+```{r scatterplot matrix}
+library(ISLR)
+Auto$name <- NULL
+
+require(ggplot2)
+require(GGally)
+GGally::ggpairs(Auto)
+```
+
+## 2. Compute the matrix of correlations between all the relevant variables using the function cor().  
+```{r matrix of correlations}
+cor(Auto)
+```
+
+
+
+## 3. With mpg as the response variable and other applicable variables as predictors test multiplelinear regression model.   
+Rank the predictors according to their relation with response and justify your answer.  
+
+Split the training set into three subsets.  
+```{r k-fold}
+trainI <- sample(nrow(Auto), 0.7*nrow(Auto))
+trainSet <- Auto[trainI,]
+testSet <- Auto[-trainI,]
+
+set.seed(1)
+train1=sample(nrow(trainSet), nrow(trainSet) * 0.33)
+train2and3 <- trainSet[-train1,]
+
+train2=sample(nrow(train2and3), nrow(train2and3) * 0.5)
+train3_<- train2and3[-train2,]
+
+train3 <- sample(nrow(train3_), nrow(train3_))
+listSet <-list(train1,train2,train3)
+
+```
+Find the best model according to K-flod cross-validation
+```{r CV multiplelinear regression model}
+
+listModel <- list()
+errorMin <- 10000
+indexMin <- 0
+for (i in 1:3) {
+  validate <- trainSet[listSet[[i]],]
+  subTrain <- trainSet[-listSet[[i]],]
+  lm.fit <- lm(mpg~.,data = subTrain)
+  listModel[[i]] <- (lm.fit)
+  cv.error <- mean((validate$mpg-predict(lm.fit,validate)))
+  if ((cv.error^2) < errorMin) {
+    errorMin <- cv.error
+    indexMin <- i
+  }
+}
+summary(listModel[[indexMin]])
+```
+
+Order all variables depands on their p-values.  
+```{r variables rank}
+sort(summary(listModel[[indexMin]])$coefficients[,4])#Pr(>|t|) 
+```
+
+So the rank of relation with response as follow:*(from most important to lest important)*  
+**year, weight, origin, horsepower, acceleration, cylinders, displacement**    
+
+
+
+
+
+## 4. Use the * and : symbols to fit linear regression models with interaction effects.  
+All possible interactions and their p-values.  
+```{r All interactions}
+lm.fit <- lm(mpg~year*weight*origin*cylinders*displacement*acceleration*horsepower,data = trainSet)
+summary(lm.fit)
+```
+
+```{r significant interactions}
+head(sort(summary(lm.fit)$coefficients[,4], decreasing=FALSE), n=10L)
+```
+These ten interactions appear to be statistically significant.  
+Now let's have a look about the model built based on these interactions:  
+
+```{r model with interactions}
+lm.fit <-lm(mpg~.
+   +weight:origin:cylinders
+   +year:weight:origin:cylinders
+   +year:origin:cylinders:acceleration
+   +year:origin:cylinders:displacement
+   +origin:cylinders:displacement
+   +origin:cylinders:acceleration
+   +year:weight:cylinders
+   +weight:cylinders
+   +year:weight:origin
+   +weight:origin
+   ,data = trainSet)
+summary(lm.fit)
+mean((testSet$mpg-predict(lm.fit,testSet)))
+```
+In this case we get ARS=0.8777 and the mean error of test set is 0.2029037
+
+
+
+
+## 5. Which of the different transformations of the variables make sense  
+such as log(X), sqrt and polynomial expansion   
+
+As we already know that "year" is the most significant variable to mpg, so I choose "year" as the exampled variable in this question.
+
+### Liner  
+```{r liner}
+lm.liner <- lm(mpg~year,data = trainSet)
+mean(testSet$mpg-predict(lm.liner,testSet))
+```
+### Log  
+```{r log}
+lm.log <- lm(mpg~log(year),data = trainSet)
+mean(testSet$mpg-predict(lm.log,testSet))
+```
+### Sqrt  
+```{r sqrt}
+lm.sqrt <- lm(mpg~I(year^2),data = trainSet)
+mean(testSet$mpg-predict(lm.sqrt,testSet))
+```
+### Polynomial expansion  
+```{r polynominal}
+lm.p2 <- lm(mpg~poly(year,2),data = trainSet)
+mean(testSet$mpg-predict(lm.p2,testSet))
+lm.p3 <- lm(mpg~poly(year,3),data = trainSet)
+mean(testSet$mpg-predict(lm.p3,testSet))
+lm.p4 <- lm(mpg~poly(year,4),data = trainSet)
+mean(testSet$mpg-predict(lm.p4,testSet))
+```
+
+#### anova  
+```{r anova}
+anova(lm.liner, lm.log, lm.sqrt, lm.p2, lm.p3, lm.p4)
+```
+
+In this result we can find that **2degree polynominal** expension make 'year' more significant in the model.  
