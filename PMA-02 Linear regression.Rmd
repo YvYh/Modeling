@@ -1,0 +1,150 @@
+---
+title: "02 Linear regression"
+output: html_notebook
+---
+*****
+#### Predictive Modeling and Analytics
+Marko Robnik-Sikonja, November 2018
+
+*****
+
+
+## Simple Linear Regression
+
+Load libraries first.
+```{r}
+library(MASS)
+library(ISLR)
+```
+
+Boston data set contains median house value (medv)) for 506 neighborhoods around Boston. We will predict medv using 13 predictors such as rm (average number of rooms per house), age (average age of houses), and lstat (percent of households with low socioeconomic status).
+
+```{r}
+# fix(Boston)
+names(Boston)
+```
+Create linear model using formula interface
+```{r}
+lm.fit=lm(medv~lstat,data=Boston)
+lm.fit
+```
+Alternatively, attach the database to the search path so that its column names are discoverable.
+```{r}
+attach(Boston)
+lm.fit=lm(medv~lstat)
+lm.fit
+```
+Investigate the obtained model.
+```{r}
+summary(lm.fit)
+names(lm.fit)
+coef(lm.fit)
+confint(lm.fit)
+```
+Use the model for prediction.
+```{r}
+predict(lm.fit,data.frame(lstat=(c(5,10,15))), interval="confidence")
+predict(lm.fit,data.frame(lstat=(c(5,10,15))), interval="prediction")
+```
+Plot the regression line.
+```{r}
+plot(lstat,medv)
+abline(lm.fit)
+```
+Some decorations, try separately.
+```{r}
+plot(lstat,medv)
+abline(lm.fit)
+abline(lm.fit,lwd=3)
+abline(lm.fit,lwd=3,col="red")
+plot(lstat,medv,col="red")
+plot(lstat,medv,pch=20)
+plot(lstat,medv,pch="+")
+```
+
+Combine several plots
+```{r}
+par(mfrow=c(2,2))
+plot(lm.fit)
+```
+
+There seem to be some non-linearity. Let us check it.
+
+```{r}
+par(mfrow=c(1,1))
+plot(predict(lm.fit), residuals(lm.fit))
+
+```
+
+
+## Multiple Linear Regression
+
+Formula interface allows easy construction of several predictors
+```{r}
+lm.fit=lm(medv~lstat+age,data=Boston)
+summary(lm.fit)
+```
+To use all predictors in data set we use the following form.
+```{r}
+lm.fit=lm(medv~.,data=Boston)
+summary(lm.fit)
+```
+We can exclude individual predictors.
+```{r}
+lm.fit1=lm(medv~.-age,data=Boston)
+summary(lm.fit1)
+```
+
+## Interaction Terms
+Formula interface supports interaction terms via * operator.
+```{r}
+summary(lm(medv~lstat*age,data=Boston))
+```
+
+## Non-linear Transformations of the Predictors
+The I function within the formula protects the use of ^ operator
+I: indicator function
+```{r}
+lm.fit2=lm(medv~lstat+I(lstat^2))
+summary(lm.fit2)
+```
+Let us compare the model with quadratic term and without it.
+```{r}
+lm.fit=lm(medv~lstat)
+anova(lm.fit,lm.fit2)
+```
+Graphical inspection of quadratic model
+```{r}
+par(mfrow=c(2,2))
+plot(lm.fit2)
+```
+We can do it more elegantly and for other functions as well.
+```{r}
+lm.fit5=lm(medv~poly(lstat,5)) #polynomial of order 5
+summary(lm.fit5)
+```
+Logarithmic dependency.
+```{r}
+summary(lm(medv~log(rm),data=Boston))
+```
+
+## Qualitative Predictors
+
+Let us use a data set which shows child car seat sales in 400 locations based on a number of predictors.
+```{r}
+# fix(Carseats)
+names(Carseats)
+str(Carseats)
+```
+Build a linear model with some interactions and some categorical variables.
+```{r}
+lm.fit=lm(Sales~.+Income:Advertising+Price:Age,data=Carseats)
+summary(lm.fit)
+```
+The structure of dummies is shown with `contrast` function.
+```{r}
+attach(Carseats)
+contrasts(ShelveLoc)
+```
+### Exercise
+Find the best performing linear model for prediction of Sales in Carseats data set. How do you know it is the best? Justify your answer.
