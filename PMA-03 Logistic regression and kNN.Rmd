@@ -1,0 +1,120 @@
+---
+title: "03 Logistic regression and kNN"
+output: html_notebook
+---
+*****
+#### Predictive Modeling and Analytics
+Marko Robnik-Sikonja, November 2018
+
+*****
+
+
+## Logistic regression
+
+Let us first get acquainted with stock market prediction data set and examine some numerical and graphical summaries of the Smarket data, which is part of the ISLR library. This data set consists of
+percentage returns for the S&P 500 stock index over 1,250 days, from the
+beginning of 2001 until the end of 2005. For each date, we have recorded
+the percentage returns for each of the five previous trading days, Lag1
+through Lag5. We have also recorded Volume (the number of shares traded
+on the previous day, in billions), Today (the percentage return on the date
+in question) and Direction (whether the market was Up or Down on this
+date).
+
+```{r}
+library(ISLR)
+names(Smarket)
+dim(Smarket)
+summary(Smarket)
+pairs(Smarket)
+# how would that graph look like using GGpairs function?
+```
+Compute correlations between variables
+```{r}
+# try this cor(Smarket)
+cor(Smarket[,-9])
+attach(Smarket)
+plot(Volume)
+```
+Try prediction with logistic regression using function `glm` (generalized linear models). For logistic regression set the parameter `family=binomial`.
+```{r}
+glm.fit=glm(Direction~Lag1+Lag2+Lag3+Lag4+Lag5+Volume,data=Smarket,family=binomial)
+summary(glm.fit)
+coef(glm.fit)
+summary(glm.fit)$coef
+summary(glm.fit)$coef[,4]
+```
+Predict with logistic regression on training set.
+```{r}
+glm.probs=predict(glm.fit,type="response")
+glm.probs[1:10]
+contrasts(Direction)
+```
+Create predictions from probabilities.
+```{r}
+glm.pred=rep("Down",1250)
+glm.pred[glm.probs>.5]="Up"
+```
+The confusion matrix
+```{r}
+table(glm.pred,Direction)
+```
+
+### Exercise
+Compute prediction accuracy.
+
+*****
+Let us be more realistic and train on the historic data and predict on the last year only.
+```{r}
+train=(Year<2005)
+Smarket.2005=Smarket[!train,]
+dim(Smarket.2005)
+Direction.2005=Direction[!train]
+glm.fit=glm(Direction~Lag1+Lag2+Lag3+Lag4+Lag5+Volume,data=Smarket,family=binomial,subset=train)
+glm.probs=predict(glm.fit,Smarket.2005,type="response")
+glm.pred=rep("Down",252)
+glm.pred[glm.probs>.5]="Up"
+table(glm.pred,Direction.2005)
+mean(glm.pred==Direction.2005)
+mean(glm.pred!=Direction.2005)
+```
+Use only the most important variables.
+```{r}
+glm.fit=glm(Direction~Lag1+Lag2,data=Smarket,family=binomial,subset=train)
+glm.probs=predict(glm.fit,Smarket.2005,type="response")
+glm.pred=rep("Down",252)
+glm.pred[glm.probs>.5]="Up"
+table(glm.pred,Direction.2005)
+mean(glm.pred==Direction.2005)
+```
+And prediction on completely new data.
+```{r}
+predict(glm.fit,newdata=data.frame(Lag1=c(1.2,1.5),Lag2=c(1.1,-0.8)),type="response")
+```
+## K-Nearest Neighbors
+
+There is no learning in kNN model, only prediction with given training set. First let's form training and testing set.
+```{r}
+require(class)
+train.X=cbind(Lag1,Lag2)[train,]
+test.X=cbind(Lag1,Lag2)[!train,]
+train.Direction=Direction[train]
+```
+If we want the prediction to be repeatable we set the random seed. Why is this necessary? Is kNN non-deterministic?
+```{r}
+set.seed(1)
+knn.pred=knn(train.X,test.X,train.Direction,k=1)
+table(knn.pred,Direction.2005)
+mean(knn.pred==Direction.2005)
+```
+And for k=3.
+```{r}
+knn.pred=knn(train.X,test.X,train.Direction,k=3)
+table(knn.pred,Direction.2005)
+mean(knn.pred==Direction.2005)
+```
+What about other k values?
+
+### Exercise
+1. Draw a graph from k=1 to 20 depicting classification accuracy of kNN.
+
+2. Investigate the caret package which is a wrapper for many machine learning packages. How would you use kNN from caret?
