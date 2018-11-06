@@ -54,3 +54,25 @@ K-fold <- function(data, k){
   sort(listModel[[indexMin]]$coefficients[,4])#Pr(>|t|) 
 }
 
+
+install.packages("CORElearn")
+require(CORElearn)
+cvGen(10,k=3)
+
+data <- iris
+folds <- 10
+foldIdx <- cvGen(nrow(data), k=folds)
+foldIdx!=j
+
+evalCore<-list()
+for (j in 1:folds) {
+  dTrain <- data[foldIdx!=j,]
+  dTest  <- data[foldIdx==j,]
+  modelCore <- CoreModel(Species~., dTrain, model="rf") 
+  predCore <- predict(modelCore, dTest)
+  evalCore[[j]] <- modelEval(modelCore, correctClass=dTest$Species,
+                             predictedClass=predCore$class, predictedProb=predCore$prob ) 
+  destroyModels(modelCore)
+}
+results <- gatherFromList(evalCore)
+sapply(results, mean)
