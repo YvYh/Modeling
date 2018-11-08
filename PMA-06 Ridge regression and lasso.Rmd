@@ -1,0 +1,146 @@
+---
+title: "06 Ridge regression and Lasso"
+output: html_notebook
+---
+*****
+#### Predictive Modeling and Analytics
+Marko Robnik-Sikonja, November 2018
+
+*****
+
+## Missing values removal
+Some methods are not able to handle missing values and we have to remove them. We demonstrate this on Hitters data set which contains data on salaries of professional baseball players and their performance.
+```{r}
+require(ISLR)
+head(Hitters)
+names(Hitters)
+dim(Hitters)
+```
+Check the number of missing values and omit instances with missing values.
+```{r}
+sum(is.na(Hitters$Salary))
+Hitters=na.omit(Hitters)
+dim(Hitters)
+sum(is.na(Hitters))
+```
+## Ridge regression
+We have to prepare the data set, X and Y separately, the package `glmnet` which contains ridge regression does not work with formula interface.
+```{r}
+x=model.matrix(Salary~.,Hitters)[,-1]
+y=Hitters$Salary
+```
+Function `glmnet` uses `alpha=0` for ridge regression and `alpha=1` for lasso. We also have to specify the values of $\lambda$ which the method will try automatically.
+```{r}
+require(glmnet)
+grid=10^seq(10,-2,length=100)
+ridge.mod=glmnet(x,y,alpha=0,lambda=grid)
+```
+We get a matrix of ridge regression coefficients.
+```{r}
+dim(coef(ridge.mod))
+ridge.mod$lambda[50]
+coef(ridge.mod)[,50]
+sqrt(sum(coef(ridge.mod)[-1,50]^2))
+ridge.mod$lambda[60]
+coef(ridge.mod)[,60]
+sqrt(sum(coef(ridge.mod)[-1,60]^2))
+```
+Use predict to obtain coefficients for $\lambda=50$
+```{r}
+predict(ridge.mod,s=50,type="coefficients")[1:20,]
+```
+We split the data into training and testing set 
+```{r}
+set.seed(1)
+train=sample(1:nrow(x), nrow(x)/2)
+test=(-train)
+y.test=y[test]
+```
+Train the ridge regressor and evaluate its MSE using $\lambda=4$
+```{r}
+ridge.mod=glmnet(x[train,],y[train],alpha=0,lambda=grid, thresh=1e-12)
+ridge.pred=predict(ridge.mod,s=4,newx=x[test,])
+mean((ridge.pred-y.test)^2)
+mean((mean(y[train])-y.test)^2)
+```
+For very large $\lambda$ we get the same result (only fitting intercept).
+```{r}
+ridge.pred=predict(ridge.mod,s=1e10,newx=x[test,])
+mean((ridge.pred-y.test)^2)
+```
+Using $\lambda=0$ we get ordinary least square regression.
+```{r}
+ridge.pred=predict(ridge.mod,s=0,newx=x[test,])
+mean((ridge.pred-y.test)^2)
+lm(y~x, subset=train)
+predict(ridge.mod,s=0,type="coefficients")[1:20,]
+```
+Use CV to select the best $\lambda$
+```{r}
+set.seed(1)
+cv.out=cv.glmnet(x[train,],y[train],alpha=0)
+plot(cv.out)
+bestlam=cv.out$lambda.min
+bestlam
+```
+Find MSE for the best $\lambda$.
+```{r}
+ridge.pred=predict(ridge.mod,s=bestlam,newx=x[test,])
+mean((ridge.pred-y.test)^2)
+```
+Now, use best $\lambda$ on the whole data set, not just sample.
+```{r}
+out=glmnet(x,y,alpha=0)
+predict(out,type="coefficients",s=bestlam)[1:20,]
+```
+
+## The Lasso
+We proceed in the same way as for ridge regression, using `glmnet` with `alpha=1`.
+```{r}
+lasso.mod=glmnet(x[train,],y[train],alpha=1,lambda=grid)
+plot(lasso.mod)
+```
+Do the CV
+```{r}
+set.seed(1)
+cv.out=cv.glmnet(x[train,],y[train],alpha=1)
+plot(cv.out)
+bestlam=cv.out$lambda.min
+lasso.pred=predict(lasso.mod,s=bestlam,newx=x[test,])
+mean((lasso.pred-y.test)^2)
+```
+Learn model on the whole data set using best $\lambda$. How many variables remain? 
+```{r}
+out=glmnet(x,y,alpha=1,lambda=grid)
+lasso.coef=predict(out,type="coefficients",s=bestlam)[1:20,]
+lasso.coef
+lasso.coef[lasso.coef!=0]
+```
+### Exercise
+Use ridge regression and lasso on `Auto` data set and select the best parameters. Which model allows better interference?
+```{r}
+library(ISLR)
+summary(Auto)
+names(Auto)
+sum(is.na(Auto$mpg))
+x=model.matrix(mpg~.,Auto)[,-1]
+y=Auto$mpg
+train=sample(1:nrow(x), nrow(x)/2)
+test=(-train)
+y.test=y[test]
+set.seed(1)
+cv.out=cv.glmnet(x[train,],y[train],alpha=0)
+plot(cv.out)
+bestlam=cv.out$lambda.min
+bestlam
+```
+```{r}
+grid=10^seq(10,-2,length=100)
+ridge.mod=glmnet(x[train,],y[train],alpha=0,lambda=grid)
+ridge.pred=predict(ridge.mod,s=bestlam,newx=x[test,])
+mean((ridge.pred-y.test)^2)
+```
+
+```{r}
+
+```
