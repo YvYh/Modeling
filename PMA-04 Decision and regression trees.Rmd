@@ -1,0 +1,173 @@
+---
+title: "04 Classification and regression trees"
+output: html_notebook
+---
+*****
+#### Predictive Modeling and Analytics
+Marko Robnik-Sikonja, November 2018
+
+*****
+
+
+## Classification Trees
+
+We shall demonstrate the use on Carseats data set to predict sales of children car seats at different locations. The Sales variable is numeric, so we turn it into a binary variable.
+```{r}
+library(tree)
+library(ISLR)
+attach(Carseats)
+High=ifelse(Sales<=8,"No","Yes")
+Carseats=data.frame(Carseats,High)
+```
+Using `tree` function from the package with the same name and using formula interface we create a classification tree model.
+```{r}
+tree.carseats=tree(High~.-Sales,Carseats)
+summary(tree.carseats)
+```
+Tree can be visualized.
+```{r}
+plot(tree.carseats)
+text(tree.carseats,pretty=0)
+```
+The object also has its print function defined.
+```{r}
+tree.carseats
+```
+Let us estimate the performance on the independent test set.
+```{r}
+set.seed(2)
+train=sample(1:nrow(Carseats), 200)
+Carseats.test=Carseats[-train,]
+High.test=High[-train]
+tree.carseats=tree(High~.-Sales,Carseats,subset=train)
+tree.pred=predict(tree.carseats,Carseats.test,type="class")
+cm <- table(tree.pred,High.test)
+cm
+cat("CA = ",sum(diag(cm))/sum(cm))
+```
+We can get suitable pruning rate with CV estimate.
+```{r}
+set.seed(3)
+cv.carseats=cv.tree(tree.carseats,FUN=prune.misclass)
+names(cv.carseats)
+cv.carseats
+```
+We plot the miss-classification rate as the function of cost-complexity pruning parameter $\alpha$ and tree size.
+```{r}
+par(mfrow=c(1,2))
+plot(cv.carseats$size,cv.carseats$dev,type="b")
+plot(cv.carseats$k,cv.carseats$dev,type="b")
+```
+We use the best value of tree size to get the final tree.
+```{r}
+prune.carseats=prune.misclass(tree.carseats,best=9)
+plot(prune.carseats)
+text(prune.carseats,pretty=0)
+```
+We measure the performance on the test set.
+```{r}
+tree.pred=predict(prune.carseats,Carseats.test,type="class")
+cm <- table(tree.pred,High.test)
+cm
+cat("CA = ",sum(diag(cm))/sum(cm))
+```
+
+##  Regression Trees
+We use Boston housing data set. Fist we prepare training and testing sets and then construct the regression tree for median housing value.
+```{r}
+library(MASS)
+set.seed(1)
+train = sample(1:nrow(Boston), nrow(Boston)/2)
+tree.boston=tree(medv~.,Boston,subset=train)
+summary(tree.boston)
+```
+Visualization
+```{r}
+plot(tree.boston)
+text(tree.boston,pretty=0)
+```
+Selection of the best tree using pruning and CV.
+```{r}
+cv.boston=cv.tree(tree.boston)
+plot(cv.boston$size,cv.boston$dev,type='b')
+```
+The most complex tree looks the best. If we wish to prune it, we do it as follows.
+```{r}
+prune.boston=prune.tree(tree.boston,best=5)
+plot(prune.boston)
+text(prune.boston,pretty=0)
+```
+We visualize the true values against predicted ones on the test set.
+```{r}
+yhat=predict(tree.boston,newdata=Boston[-train,])
+boston.test=Boston[-train,"medv"]
+plot(yhat,boston.test)
+abline(0,1)
+```
+We compute root of MSE to see how well we are doing.
+```{r}
+sqrt(mean((yhat-boston.test)^2))
+```
+### Exercise
+ 1. Find the best regression tree for prediction of Sales variable in Carseats data set.  
+```{r}
+set.seed(10)
+train.carseats = sample(1:nrow(Carseats), nrow(Carseats)/2)
+tree.carseats.reg=tree(Sales~.,Carseats, subset = train.carseats)
+summary(tree.carseats.reg)
+cv.carseats.reg=cv.tree(tree.carseats.reg)
+plot(cv.carseats.reg$size,cv.carseats.reg$dev,type='b')
+```
+
+```{r}
+size=which.min(cv.carseats.reg$dev)
+prune.carseats.reg=prune.tree(tree.carseats.reg,best=size)
+plot(prune.carseats.reg)
+text(prune.carseats.reg,pretty=0)
+```
+```{r}
+yhat=predict(tree.carseats.reg,newdata=Carseats[-train.carseats,])
+carseats.test=Carseats[-train.carseats,"Sales"]
+plot(yhat,carseats.test)
+abline(0,1)
+```
+ 
+ 
+ 2. Assume that we split values of medv in Boston housing data set into three categories: Low (less then 20), Medium (between 20 and 30) and High (over 30). Construct decision tree for prediction of this variable, select the best pruning parameter using 10-fold CV and 10-fold stratified CV.
+ 
+```{r}
+attach(Boston)
+Level=ifelse(medv<20,"Low",ifelse(medv>30,"High","Medium"))
+Boston=data.frame(Boston,Level)
+```
+```{r}
+tree.boston=tree(Level~.-medv,Boston)
+summary(tree.boston)
+plot(tree.boston)
+text(tree.boston,pretty=0)
+```
+```{r}
+data <- Boston
+folds <- 20
+foldIdx <- cvGen(nrow(data), k=folds)
+sizeList<-list()
+for (j in 1:folds) {
+  dTrain <- data[foldIdx!=j,]
+  dTest  <- data[foldIdx==j,]
+  tree.boston=tree(Level~.-medv,dTrain)
+  cv.boston=cv.tree(tree.boston,FUN=prune.misclass)
+  sizeList[[j]]=cv.boston$size[which.min(cv.boston$dev)]
+}
+
+k=names(which.max(table(unlist(sizeList))))
+k=as.numeric(k)
+k
+```
+
+
+```{r}
+tree.boston=tree(Level~.-medv,Boston)
+prune.boston=prune.misclass(tree.boston,best=k)
+plot(prune.carseats)
+text(prune.carseats,pretty=0)
+```
