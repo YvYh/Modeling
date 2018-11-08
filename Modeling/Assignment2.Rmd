@@ -1,0 +1,117 @@
+---
+title: "Assignment 2"
+author: "YU Hong"
+date: "2018/11/6"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### logistic regression
+
+Add new column: High if Sales>8 and Low if Sales<=8  
+```{r cars}
+library(ISLR)
+require(CORElearn)
+attach(Carseats)
+High=ifelse(Sales<=8,"Low","High")
+Carseats=data.frame(Carseats,High)
+```
+Appliy 10-fold cross-validation to logistical regression model
+```{r}
+data <- Carseats
+folds <- 10
+foldIdx <- cvGen(nrow(data), k=folds)
+ca=c()
+sen=c()
+spe=c()
+k=c()
+for (j in 1:folds) {
+  dTrain <- data[foldIdx!=j,]
+  dTest  <- data[foldIdx==j,]
+  High.test=High[foldIdx==j]
+  glm.fit=glm(High~.-Sales,data = dTrain,family = binomial)
+  glm.probs=predict(glm.fit,dTest,type="response")
+  glm.pred=rep("High",nrow(dTest))
+  glm.pred[glm.probs>.5]="Low"
+  t=table(glm.pred,High.test)
+  ca[j] =sum(diag(t))/sum(t)
+  sen[j] =t[1,1]/sum(t[1,])
+  spe[j] =t[2,2]/sum(t[2,])
+  Pyes=sum(t[,1])*sum(t[1,])/(sum(t)^2)
+  Pno=sum(t[,2])*sum(t[2,])/(sum(t)^2)
+  Pe=Pyes+Pno
+  k[j] =(ca[j] -Pe)/(1-Pe)
+
+}
+ca #classification accuracy
+sen #sensitivity
+spe #specificity
+k #Cohen's kappa
+```
+Then I calculate their average and standard deviation
+```{r}
+meanReg=c(mean(ca), mean(sen), mean(spe), mean(k))
+meanReg
+sdReg=c(sd(ca),sd(sen),sd(spe),sd(k))
+sdReg
+```
+Put all values in one table
+```{r}
+resultReg=data.frame(meanReg, sdReg, row.names=c("Accuracy","Sensitivity","Specificity","Kappa"))
+
+resultReg
+
+```
+
+
+### KNN
+Apply 10-fold to KNN  
+Here I choose **Price, ComPrice and ShelveLoc** as parameters of KNN model  
+```{r}
+require(class)
+data <- Carseats
+folds <- 10
+foldIdx <- cvGen(nrow(data), k=folds)
+ca=c()
+sen=c()
+spe=c()
+k=c()
+columns=length(names(data))
+for (j in 1:folds) {
+  set.seed(1)
+  dTrain.X=cbind(Price,CompPrice,ShelveLoc)[foldIdx!=j,]
+  dTest.X=cbind(Price,CompPrice,ShelveLoc)[foldIdx==j,]
+  High.train=High[foldIdx!=j]
+  High.test=High[foldIdx==j]
+  knn.pred=knn(dTrain.X,dTest.X, High.train, k=j)
+  ca[j] = mean(knn.pred==High.test)
+  t=table(knn.pred,High.test)
+  sen[j] =t[1,1]/sum(t[1,])
+  spe[j] =t[2,2]/sum(t[2,])
+  Pyes=sum(t[,1])*sum(t[1,])/(sum(t)^2)
+  Pno=sum(t[,2])*sum(t[2,])/(sum(t)^2)
+  Pe=Pyes+Pno
+  k[j] =(ca[j] -Pe)/(1-Pe)
+}
+ca
+sen
+spe
+k
+```
+The results are as follows
+```{r}
+meanKNN=c(mean(ca), mean(sen), mean(spe), mean(k))
+sdKNN=c(sd(ca),sd(sen),sd(spe),sd(k))
+resultKNN=data.frame(meanKNN, sdKNN, row.names=c("Accuracy","Sensitivity","Specificity","Kappa"))
+
+resultKNN
+```
+## Compare two results  
+```{r}
+cbind(resultReg, resultKNN)
+```
+
+By comparing these results, it looks like logistic regression is better than KNN in this data set and it has a strong aggrement.
