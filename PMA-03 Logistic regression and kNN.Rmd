@@ -56,11 +56,18 @@ glm.pred[glm.probs>.5]="Up"
 ```
 The confusion matrix
 ```{r}
-table(glm.pred,Direction)
+t<-table(glm.pred,Direction)
+t
 ```
 
 ### Exercise
 Compute prediction accuracy.
+```{r}
+ca<-sum(diag(t))/sum(t)
+ca
+mean(glm.pred==Direction)
+```
+
 
 *****
 Let us be more realistic and train on the historic data and predict on the last year only.
@@ -116,5 +123,21 @@ What about other k values?
 
 ### Exercise
 1. Draw a graph from k=1 to 20 depicting classification accuracy of kNN.
+```{r}
+ca <- list()
+set.seed(2)
+for (i in 1:20){
+  knn.pred=knn(train.X,test.X, train.Direction, k=i)
+  ca[i] <- mean(knn.pred==Direction.2005)
+}
+plot(1:20, ca, xlab = "k", ylab = "classification accuracy", type = "l")
+which.max(unlist(ca))
+
+```
+It will be better if we do n times and take the average then find out the K value with largest CA. Or possible to make a regression to ca values in order the find the best K value.  
+
 
 2. Investigate the caret package which is a wrapper for many machine learning packages. How would you use kNN from caret?
+
+3.Compare logistic regression and KNN  
+With the regression
