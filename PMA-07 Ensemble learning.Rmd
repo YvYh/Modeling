@@ -1,0 +1,96 @@
+---
+title: "07 Ensemble learning"
+output: html_notebook
+---
+*****
+#### Predictive Modeling and Analytics
+Marko Robnik-Šikonja, November 2016
+
+*****
+
+## Bagging 
+
+We use `randomForest` package and Boston housing data set from MASS package to predict numeric variable median housing value (medv). First we split the data for training and testing.
+
+```{r}
+library(randomForest)
+library(MASS)
+set.seed(1)
+train <- sample(1:nrow(Boston),0.7*nrow(Boston))
+test <- 1:nrow(Boston)[-train]
+attach(Boston)
+boston.test <- medv[test]
+```
+Note that bagging is a variant of random forest which uses all variables in random selection of features during construction of the trees.
+```{r}
+bag.boston=randomForest(medv~.,data=Boston,subset=train,mtry=ncol(Boston)-1,importance=TRUE)
+bag.boston
+```
+Let us plot predictions against true values and estimate MSE on test set.
+```{r}
+yhat.bag = predict(bag.boston,newdata=Boston[test,])
+plot(yhat.bag, boston.test)
+abline(0,1)
+mean((yhat.bag-boston.test)^2)
+```
+What happens if we increase number of trees?
+```{r}
+bag.boston=randomForest(medv~.,data=Boston,subset=train,mtry=13,ntree=25)
+yhat.bag = predict(bag.boston,newdata=Boston[test,])
+mean((yhat.bag-boston.test)^2)
+```
+
+## Random forests
+For random forest we just decrease number of randomly chosen variables controlled by parameter `mtry`. Default value for classification is square root of the number of predictors, and for regression it is one third of the number of predictors.
+```{r}
+set.seed(1)
+rf.boston=randomForest(medv~.,data=Boston,subset=train,mtry=6,importance=TRUE)
+yhat.rf = predict(rf.boston,newdata=Boston[test,])
+mean((yhat.rf-boston.test)^2)
+```
+We can also use random forest to estimate importance of variables. 
+```{r}
+importance(rf.boston)
+```
+Importance of variables can also be plotted with provided function.
+```{r}
+varImpPlot(rf.boston)
+```
+
+
+## Boosting
+Boosting is implemented in `gbm`package. For regression we use `distribution="gaussian"`. For classification problem we would set `distribution="bernoulli"`. The parameter `interaction.depth` limits the depth of trees.
+```{r}
+library(gbm)
+set.seed(1)
+boost.boston=gbm(medv~.,data=Boston[train,],distribution="gaussian",n.trees=5000,interaction.depth=4)
+```
+The summary function outputs impact of variables.
+```{r}
+summary(boost.boston)
+```
+We can also produce partial dependence plots for these two variables. These plots illustrate the marginal effect of the selected variables on the response after integrating out the other variables. In this case, as we might expect, median
+house prices are increasing with rm and decreasing with lstat.
+```{r}
+par(mfrow=c(1,2))
+plot(boost.boston,i="rm")
+plot(boost.boston,i="lstat")
+```
+Predict error on the test set.
+```{r}
+yhat.boost=predict(boost.boston,newdata=Boston[test,],n.trees=5000)
+mean((yhat.boost-boston.test)^2)
+```
+We can also modify regularization parameter `shrinkage`.
+```{r}
+boost.boston=gbm(medv~.,data=Boston[train,],distribution="gaussian",n.trees=5000,interaction.depth=4,shrinkage=0.2,verbose=F)
+yhat.boost=predict(boost.boston,newdata=Boston[test,],n.trees=5000)
+mean((yhat.boost-boston.test)^2)
+```
+
+### Exercise
+ 1. Use bagging, random forest and boosting to classify Sales variable on Carseats data set into two categories, High (Sales>8) and Low (Sales<=8).
+ 2. Using the above data set, analyze the number of trees in bagging, parameter `mtry` in random forests, and `shrinkag`e and `interaction.depth` in boosting. Visualize the results.
+ 3. Random forest for classification is also implemented in the CORElearn package. Try using it on the classification data set iris and visualize its outputs.
+ 4. (optional) Implement stacking of classifiers, where you use the returned probability scores of baseline classifiers. As baseline classifiers use logistic regression, kNN algorithm, random forest and naive Bayes.  Apply the approach to the provided spambase. Present reliable comparison of the stacking results and results of baseline classifiers.
+ 
